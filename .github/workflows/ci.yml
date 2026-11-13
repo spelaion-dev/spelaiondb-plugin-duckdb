@@ -18,4 +18,4 @@ permissions:
 jobs:
   ci:
     # DuckDB is compiled in: the type zoo and the conformance set need nothing external.
-    uses: spelaion-dev/spelaiondb-plugin-template/.github/workflows/plugin-ci.yml@f9ac807de59b6c7b4eb970781a9ce098e809d42f
+    uses: spelaion-dev/spelaiondb-plugin-template/.github/workflows/plugin-ci.yml@9714b4536df6674c2c9f3800a906aa8c7353eab3
