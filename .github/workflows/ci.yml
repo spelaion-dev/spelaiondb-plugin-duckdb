@@ -1,8 +1,6 @@
-# What every pull request and every push to `main` must pass: the same reviewer as in
-# SpelaionDB's repository (ADR-012 there). Nothing here uses a secret.
-#
-# The actions are pinned to a commit and Rust to a version: the same ones as SpelaionDB's
-# repository. Move them there first.
+# What every pull request and every push to `main` must pass: the checks every plugin of
+# SpelaionDB shares, kept in the template's repository and called by commit. A change there
+# reaches this plugin when this file moves the commit.
 name: CI
 
 on:
@@ -17,49 +15,7 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  linux:
-    name: Linux · fmt, clippy, the type zoo and the conformance set
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
-        with:
-          toolchain: 1.99.1
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          save-if: ${{ github.event_name == 'push' }}
-      - run: cargo fmt --all --check
-      - run: cargo clippy --all-targets --locked -- -D warnings
-      # The type zoo (tests/duckdb.rs) and the conformance set (tests/conformance.rs), which
-      # starts this plugin's own program. DuckDB is compiled in: nothing external is needed.
-      - run: cargo test --locked
-
-  windows:
-    name: Windows · clippy, the type zoo and the conformance set
-    runs-on: windows-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
-        with:
-          toolchain: 1.99.1
-          components: clippy
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          save-if: ${{ github.event_name == 'push' }}
-      - run: cargo clippy --all-targets --locked -- -D warnings
-      - run: cargo test --locked
-
-  deny:
-    name: Licenses and vulnerabilities
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+  ci:
+    # DuckDB is compiled in: the type zoo and the conformance set need nothing external.
+    uses: spelaion-dev/spelaiondb-plugin-template/.github/workflows/plugin-ci.yml@f9ac807de59b6c7b4eb970781a9ce098e809d42f
