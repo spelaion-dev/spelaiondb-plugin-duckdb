@@ -1,0 +1,44 @@
+[package]
+name = "spelaiondb-plugin-duckdb"
+description = "DuckDB for SpelaionDB: the engine's driver, served as a plugin"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/spelaion-dev/spelaiondb-plugin-duckdb"
+publish = false
+
+# The driver keeps the name it had inside SpelaionDB: its tests and the program use it.
+[lib]
+name = "spelaion_driver_duckdb"
+
+[[bin]]
+name = "spelaiondb-plugin-duckdb"
+path = "src/bin/spelaiondb-plugin-duckdb.rs"
+
+# The contract, the engine's dialect and the plugin's side of the protocol come from
+# SpelaionDB's repository, by tag (ADR-042): they are one workspace there, so one tag pins
+# them together. Moving the tag is how this plugin follows a protocol change.
+[dependencies]
+spelaion-driver-api = { git = "https://github.com/spelaion-dev/spelaiondb", tag = "plugin-sdk-v0.1.0" }
+spelaion-dialect = { git = "https://github.com/spelaion-dev/spelaiondb", tag = "plugin-sdk-v0.1.0" }
+spelaion-plugin-sdk = { git = "https://github.com/spelaion-dev/spelaiondb", tag = "plugin-sdk-v0.1.0" }
+# The same Arrow as SpelaionDB's: batches cross the two unchanged.
+arrow = { version = "60", default-features = false, features = ["ipc"] }
+async-trait = "0.1"
+# bundled: DuckDB compiled in, same version on every platform. Its Arrow is ours (60).
+# No default features: they only add libduckdb-sys's download-lib (ureq + rustls), pkg-config
+# and vcpkg, which find or fetch a prebuilt library and are never used by a bundled build.
+duckdb = { version = "=1.20000.1", default-features = false, features = ["bundled"] }
+futures-util = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+
+[dev-dependencies]
+# The conformance set every plugin runs against its own program (tests/conformance.rs).
+spelaion-plugin-host = { git = "https://github.com/spelaion-dev/spelaiondb", tag = "plugin-sdk-v0.1.0" }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+# What ships is this program: small and without the debugger's tables.
+[profile.release]
+strip = "symbols"
