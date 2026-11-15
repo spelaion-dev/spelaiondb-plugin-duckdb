@@ -744,6 +744,37 @@ async fn attached_databases_are_browsable() {
     exec_all(&*conn, "detach other").await;
 }
 
+/// Parquet is compiled in: with file access limited to one folder and every other external
+/// access off, DuckDB cannot load or download an extension, and Parquet still reads and writes
+/// there (SpelaionDB's folder of files, SDB-316).
+#[tokio::test]
+async fn parquet_works_with_external_access_off() {
+    let dir = std::env::temp_dir().join(format!("duck-parquet-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let folder = dir.display().to_string().replace('\\', "/");
+    let conn = memory().await;
+    exec_all(
+        &*conn,
+        &format!("set allowed_directories = ['{folder}/']; set enable_external_access = false"),
+    )
+    .await;
+    exec_all(
+        &*conn,
+        &format!(
+            "copy (select 42 as answer, 'texto' as word, 1.5::decimal(4,2) as amount) to '{folder}/t.parquet' (format parquet)"
+        ),
+    )
+    .await;
+    let (header, rows) = table(
+        &*conn,
+        &format!("select * from read_parquet('{folder}/t.parquet')"),
+    )
+    .await;
+    assert_eq!(rows, [["42", "texto", "1.50"]], "{header:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[tokio::test]
 async fn server_version_is_reported() {
     let conn = memory().await;
