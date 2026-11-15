@@ -1,7 +1,7 @@
 [package]
 name = "spelaiondb-plugin-duckdb"
 description = "DuckDB for SpelaionDB: the engine's driver, served as a plugin"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/spelaion-dev/spelaiondb-plugin-duckdb"
@@ -28,7 +28,10 @@ async-trait = "0.1"
 # bundled: DuckDB compiled in, same version on every platform. Its Arrow is ours (60).
 # No default features: they only add libduckdb-sys's download-lib (ureq + rustls), pkg-config
 # and vcpkg, which find or fetch a prebuilt library and are never used by a bundled build.
-duckdb = { version = "=1.20000.1", default-features = false, features = ["bundled"] }
+# parquet: compiled in, so reading or writing a Parquet file never downloads DuckDB's extension
+# at run time, and works where file and network access are off except for chosen folders (a
+# folder of files in SpelaionDB, SDB-316).
+duckdb = { version = "=1.20000.1", default-features = false, features = ["bundled", "parquet"] }
 futures-util = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 
