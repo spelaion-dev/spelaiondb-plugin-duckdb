@@ -6,7 +6,9 @@
 //! A DuckDB file can be opened only once per process (a second open fails on the file lock),
 //! while the app opens several connections to the same database (one per tab, one for the
 //! explorer). So the first connection to a file opens the database and keeps a root handle;
-//! the others are clones of it. The file is closed when the last connection closes.
+//! the others are clones of it. The file is closed when the last connection closes, on that
+//! connection's thread, which writes what DuckDB holds into it: the driver's `shutdown` waits
+//! for every file to be closed so, before the plugin's program ends, none is left half written.
 
 use spelaion_dialect::duckdb as dialect;
 mod exec;
@@ -76,6 +78,11 @@ impl Drop for ActorLease {
 
 /// Creates an empty DuckDB database at `path`. An existing file is never touched.
 pub fn create_database(path: &Path) -> Result<()> {
+    // Held while the new file is written: `shutdown` cannot find no file open meanwhile.
+    let _open = OPEN
+        .0
+        .lock()
+        .map_err(|_| DriverError::Other("the DuckDB registry is poisoned".into()))?;
     if path.exists() {
         return Err(DriverError::Other(format!(
             "{} already exists: a new database never replaces a file",
@@ -87,6 +94,19 @@ pub fn create_database(path: &Path) -> Result<()> {
     // Writes the header, so the file is a database before anything else uses it.
     conn.execute_batch("checkpoint").map_err(exec::map_error)?;
     Ok(())
+}
+
+/// Waits until no file is open: the last connection to each has closed it.
+fn wait_until_closed() {
+    let Ok(mut open) = OPEN.0.lock() else {
+        return;
+    };
+    while !open.is_empty() {
+        open = match OPEN.1.wait(open) {
+            Ok(open) => open,
+            Err(_) => return,
+        };
+    }
 }
 
 /// DuckDB driver. `ConnectParams::database` is the file path (or `:memory:`).
@@ -199,6 +219,12 @@ impl Driver for DuckdbDriver {
         tokio::task::spawn_blocking(move || create_database(&path))
             .await
             .map_err(|e| DriverError::Other(e.to_string()))?
+    }
+
+    /// Every connection is gone: each file closes on the thread of its last connection,
+    /// writing what DuckDB holds into it. Returns once every file is closed.
+    async fn shutdown(&self) {
+        let _ = tokio::task::spawn_blocking(wait_until_closed).await;
     }
 
     async fn connect(&self, params: &ConnectParams) -> Result<Box<dyn Connection>> {
