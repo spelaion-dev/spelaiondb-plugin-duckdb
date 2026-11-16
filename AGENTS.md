@@ -35,7 +35,10 @@ introspects and loads rows. So, and these are not negotiable
 - **It runs what it is sent.** It never decides whether a statement is a read, and never
   changes one.
 - **Nothing is run again** after a connection is lost.
-- **It ends when its standard input closes** (the SDK does this).
+- **It ends when its standard input closes** (the SDK does this), and **never before every
+  file is closed**: the SDK drops the sessions, then the driver's `shutdown` waits until the
+  last connection to each file has closed it, writing what DuckDB holds into it
+  (`tests/shutdown.rs`). A program ended earlier can leave the file corrupt.
 - It reads no configuration file, keychain or store of SpelaionDB's.
 
 ## The contract comes from SpelaionDB, by tag
