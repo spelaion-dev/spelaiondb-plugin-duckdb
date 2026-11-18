@@ -1045,7 +1045,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 [[package]]
 name = "spelaion-dialect"
 version = "0.10.0"
-source = "git+https://github.com/spelaion-dev/spelaiondb?tag=plugin-sdk-v0.3.1#82e6dae4c859a6ec20b663140c0116fa196f65af"
+source = "git+https://github.com/spelaion-dev/spelaiondb?rev=ed47cc216fc9e6c3230ac9da52f51badaf10b39e#ed47cc216fc9e6c3230ac9da52f51badaf10b39e"
 dependencies = [
  "serde_json",
  "spelaion-driver-api",
@@ -1054,7 +1054,7 @@ dependencies = [
 [[package]]
 name = "spelaion-driver-api"
 version = "0.10.0"
-source = "git+https://github.com/spelaion-dev/spelaiondb?tag=plugin-sdk-v0.3.1#82e6dae4c859a6ec20b663140c0116fa196f65af"
+source = "git+https://github.com/spelaion-dev/spelaiondb?rev=ed47cc216fc9e6c3230ac9da52f51badaf10b39e#ed47cc216fc9e6c3230ac9da52f51badaf10b39e"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1068,7 +1068,7 @@ dependencies = [
 [[package]]
 name = "spelaion-plugin-host"
 version = "0.10.0"
-source = "git+https://github.com/spelaion-dev/spelaiondb?tag=plugin-sdk-v0.3.1#82e6dae4c859a6ec20b663140c0116fa196f65af"
+source = "git+https://github.com/spelaion-dev/spelaiondb?rev=ed47cc216fc9e6c3230ac9da52f51badaf10b39e#ed47cc216fc9e6c3230ac9da52f51badaf10b39e"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1083,7 +1083,7 @@ dependencies = [
 [[package]]
 name = "spelaion-plugin-protocol"
 version = "0.10.0"
-source = "git+https://github.com/spelaion-dev/spelaiondb?tag=plugin-sdk-v0.3.1#82e6dae4c859a6ec20b663140c0116fa196f65af"
+source = "git+https://github.com/spelaion-dev/spelaiondb?rev=ed47cc216fc9e6c3230ac9da52f51badaf10b39e#ed47cc216fc9e6c3230ac9da52f51badaf10b39e"
 dependencies = [
  "arrow",
  "serde",
@@ -1095,7 +1095,7 @@ dependencies = [
 [[package]]
 name = "spelaion-plugin-sdk"
 version = "0.10.0"
-source = "git+https://github.com/spelaion-dev/spelaiondb?tag=plugin-sdk-v0.3.1#82e6dae4c859a6ec20b663140c0116fa196f65af"
+source = "git+https://github.com/spelaion-dev/spelaiondb?rev=ed47cc216fc9e6c3230ac9da52f51badaf10b39e#ed47cc216fc9e6c3230ac9da52f51badaf10b39e"
 dependencies = [
  "arrow",
  "futures-util",

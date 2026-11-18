@@ -775,6 +775,76 @@ async fn parquet_works_with_external_access_off() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A relation's properties and dependencies (SpelaionDB's SDB-393): what DuckDB records, and
+/// the views it binds when they run said untracked rather than shown as nothing.
+#[tokio::test]
+async fn object_details_read_what_duckdb_records() {
+    let db = TempDb::new("details");
+    let conn = open(&db).await;
+    exec_all(
+        &*conn,
+        "create table customer (id integer primary key, email varchar);
+         create table orders (id integer primary key, customer_id integer references customer (id));
+         create view emails as select email from customer;
+         create temporary table scratch (a integer)",
+    )
+    .await;
+    let properties = conn.object_properties("main", "customer").await.unwrap();
+    assert_eq!(properties[0].name, "persistence");
+    assert_eq!(properties[0].value, "permanent");
+    assert!(
+        properties
+            .iter()
+            .any(|p| p.name == "file" && p.value.ends_with(".duckdb")),
+        "{properties:?}"
+    );
+    let temporary = conn.object_properties("temp.main", "scratch").await;
+    assert!(
+        temporary
+            .as_ref()
+            .is_ok_and(|p| p.iter().any(|p| p.value == "temporary")),
+        "{temporary:?}"
+    );
+    assert!(conn.object_properties("main", "nope").await.is_err());
+    // DuckDB has no table partitions.
+    assert_eq!(conn.table_partitions("main", "orders").await.unwrap(), None);
+
+    let customer = conn
+        .object_dependencies("main", "customer")
+        .await
+        .unwrap()
+        .expect("DuckDB tells what it records");
+    assert!(customer.uses.is_empty());
+    assert_eq!(customer.used_by.len(), 1);
+    assert_eq!(customer.used_by[0].name, "orders");
+    assert_eq!(
+        customer.used_by[0].kind,
+        spelaion_driver_api::DependencyKind::ForeignKey
+    );
+    assert!(
+        customer
+            .untracked
+            .contains(&spelaion_driver_api::DependencyKind::View)
+    );
+    let orders = conn
+        .object_dependencies("main", "orders")
+        .await
+        .unwrap()
+        .expect("told");
+    assert_eq!(orders.uses[0].name, "customer");
+    let view = conn
+        .object_dependencies("main", "emails")
+        .await
+        .unwrap()
+        .expect("told");
+    assert!(view.uses.is_empty());
+    assert!(
+        view.untracked
+            .contains(&spelaion_driver_api::DependencyKind::Table)
+    );
+    assert!(conn.object_dependencies("main", "nope").await.is_err());
+}
+
 #[tokio::test]
 async fn server_version_is_reported() {
     let conn = memory().await;
