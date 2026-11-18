@@ -11,6 +11,7 @@
 //! for every file to be closed so, before the plugin's program ends, none is left half written.
 
 use spelaion_dialect::duckdb as dialect;
+mod details;
 mod exec;
 mod format;
 mod introspect;
@@ -27,10 +28,10 @@ use async_trait::async_trait;
 use duckdb::{AccessMode, Config};
 use spelaion_driver_api::thread_cancel::{Canceller, Closer, Work};
 use spelaion_driver_api::{
-    CancelHandle, Capabilities, ConnectParams, Connection, ContextDialect, DatabaseContext, Driver,
-    DriverError, EventStream, ExecEvent, ExecOptions, InsertTarget, LikeFilter, NameFilter,
-    ObjectInfo, ReferencingKey, Result, SchemaColumn, SchemaInfo, SchemaObject, TableInfo,
-    TextRows, TransactionState,
+    CancelHandle, Capabilities, ConnectParams, Connection, ContextDialect, DatabaseContext,
+    Dependencies, Driver, DriverError, EventStream, ExecEvent, ExecOptions, InsertTarget,
+    LikeFilter, NameFilter, ObjectInfo, ObjectProperty, ReferencingKey, Result, SchemaColumn,
+    SchemaInfo, SchemaObject, TableInfo, TextRows, TransactionState,
 };
 use tokio::sync::{mpsc, oneshot};
 
@@ -296,6 +297,9 @@ enum Command {
     Objects(String, LikeFilter, Reply<Vec<ObjectInfo>>),
     Describe(String, String, Reply<TableInfo>),
     Referencing(String, String, Reply<Vec<ReferencingKey>>),
+    /// A relation's properties and dependencies (SDB-393).
+    Properties(String, String, Reply<Vec<ObjectProperty>>),
+    Dependencies(String, String, Reply<Option<Dependencies>>),
     SchemaObjects(String, LikeFilter, Reply<Vec<SchemaObject>>),
     Definition(Box<SchemaObject>, Reply<String>),
     /// The call of a macro (`Connection::procedure_call`).
@@ -370,6 +374,12 @@ fn actor(
             }
             Command::Referencing(schema, name, reply) => {
                 let _ = reply.send(introspect::list_referencing_keys(conn, &schema, &name));
+            }
+            Command::Properties(schema, name, reply) => {
+                let _ = reply.send(details::properties(conn, &schema, &name));
+            }
+            Command::Dependencies(schema, name, reply) => {
+                let _ = reply.send(details::dependencies(conn, &schema, &name));
             }
             Command::SchemaObjects(schema, like, reply) => {
                 let _ = reply.send(objects::list_schema_objects(conn, &schema, &like));
@@ -603,6 +613,18 @@ impl Connection for DuckdbConnection {
     async fn list_referencing_keys(&self, schema: &str, name: &str) -> Result<Vec<ReferencingKey>> {
         let (schema, name) = (schema.to_string(), name.to_string());
         self.ask(|reply| Command::Referencing(schema, name, reply))
+            .await
+    }
+
+    async fn object_properties(&self, schema: &str, name: &str) -> Result<Vec<ObjectProperty>> {
+        let (schema, name) = (schema.to_string(), name.to_string());
+        self.ask(|reply| Command::Properties(schema, name, reply))
+            .await
+    }
+
+    async fn object_dependencies(&self, schema: &str, name: &str) -> Result<Option<Dependencies>> {
+        let (schema, name) = (schema.to_string(), name.to_string());
+        self.ask(|reply| Command::Dependencies(schema, name, reply))
             .await
     }
 
