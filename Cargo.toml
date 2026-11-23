@@ -31,7 +31,7 @@ async-trait = "0.1"
 # parquet: compiled in, so reading or writing a Parquet file never downloads DuckDB's extension
 # at run time, and works where file and network access are off except for chosen folders (a
 # folder of files in SpelaionDB, SDB-316).
-duckdb = { version = "=1.20000.1", default-features = false, features = ["bundled", "parquet"] }
+duckdb = { version = "=1.20000.1", default-features = false, features = ["bundled", "parquet", "json"] }
 futures-util = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 
