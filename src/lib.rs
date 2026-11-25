@@ -24,11 +24,12 @@ use std::sync::{Arc, Condvar, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+use duckdb::types::{ToSqlOutput, ValueRef};
 use duckdb::{AccessMode, Config};
 use spelaion_driver_api::thread_cancel::{Canceller, Closer, Work};
 use spelaion_driver_api::{
-    CancelHandle, Capabilities, ConnectParams, Connection, ContextDialect, DatabaseContext, Driver,
-    DriverError, EventStream, ExecEvent, ExecOptions, InsertTarget, LikeFilter, NameFilter,
+    CancelHandle, Capabilities, Cell, ConnectParams, Connection, ContextDialect, DatabaseContext,
+    Driver, DriverError, EventStream, ExecEvent, ExecOptions, InsertTarget, LikeFilter, NameFilter,
     ObjectInfo, ReferencingKey, Result, SchemaColumn, SchemaInfo, SchemaObject, TableInfo,
     TextRows, TransactionState,
 };
@@ -271,6 +272,8 @@ impl Driver for DuckdbDriver {
                 schemas: true, // main and attached databases (ATTACH)
                 insert_rows: true,
                 bound_params: true,
+                // The appender takes them as blobs (SDB-464).
+                insert_bytes: true,
             },
         }))
     }
@@ -399,8 +402,8 @@ fn actor(
 }
 
 /// DuckDB's appender, given the table's columns by name: values arrive as text and DuckDB casts
-/// them to each column's type. It writes in the connection's open transaction, so a rollback
-/// takes the rows back.
+/// them to each column's type, and a binary column's as a blob (SDB-464). It writes in the
+/// connection's open transaction, so a rollback takes the rows back.
 fn append(
     conn: &duckdb::Connection,
     target: &InsertTarget,
@@ -421,8 +424,16 @@ fn append(
         if row % 1024 == 0 {
             work.check()?;
         }
+        // Lent, not copied.
+        let values = rows.cells(row).map(|cell| {
+            ToSqlOutput::Borrowed(match cell {
+                None => ValueRef::Null,
+                Some(Cell::Text(text)) => ValueRef::Text(text.as_bytes()),
+                Some(Cell::Bytes(bytes)) => ValueRef::Blob(bytes),
+            })
+        });
         appender
-            .append_row(duckdb::appender_params_from_iter(rows.row(row)))
+            .append_row(duckdb::appender_params_from_iter(values))
             .map_err(exec::map_error)?;
     }
     appender.flush().map_err(exec::map_error)?;

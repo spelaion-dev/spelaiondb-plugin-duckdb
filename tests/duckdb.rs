@@ -455,6 +455,43 @@ async fn cancel_while_the_statement_starts_stops_it() {
     still_answers(&*conn).await;
 }
 
+/// A column of bytes loads every byte as it is into a `BLOB`, through the appender, the empty
+/// bytes and NULL apart (SDB-464).
+#[tokio::test]
+async fn insert_rows_loads_bytes_as_they_are() {
+    use spelaion_driver_api::{Cell, ColumnKind, InsertTarget, TextRows};
+    let conn = memory().await;
+    assert!(conn.capabilities().insert_bytes);
+    exec_all(&*conn, "create table b (id int, data BLOB)").await;
+    let every: Vec<u8> = (0..=255).collect();
+    let mut rows = TextRows::builder_with(&[ColumnKind::Text, ColumnKind::Bytes]);
+    rows.push_cells([Some(Cell::Text("1")), Some(Cell::Bytes(&every))])
+        .unwrap();
+    rows.push_cells([Some(Cell::Text("2")), Some(Cell::Bytes(&[]))])
+        .unwrap();
+    rows.push_cells([Some(Cell::Text("3")), None]).unwrap();
+    let target = InsertTarget {
+        schema: "main".into(),
+        table: "b".into(),
+        columns: vec!["id".into(), "data".into()],
+    };
+    assert_eq!(conn.insert_rows(&target, rows.finish()).await.unwrap(), 3);
+    let (_, read) = table(
+        &*conn,
+        "select id, coalesce(lower(hex(data)), 'NULL') from b order by id",
+    )
+    .await;
+    let hex: String = every.iter().map(|b| format!("{b:02x}")).collect();
+    assert_eq!(
+        read,
+        [
+            vec!["1".to_string(), hex],
+            vec!["2".into(), String::new()],
+            vec!["3".into(), "NULL".into()],
+        ]
+    );
+}
+
 /// A cancel stops every statement sent before it, also those waiting behind the running one.
 #[tokio::test]
 async fn cancel_stops_queued_statements_and_appends() {
