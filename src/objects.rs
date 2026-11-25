@@ -266,7 +266,10 @@ pub fn object_definition(conn: &Connection, object: &SchemaObject) -> Result<Str
         | SchemaObjectKind::Trigger
         | SchemaObjectKind::Domain
         | SchemaObjectKind::Event
-        | SchemaObjectKind::Synonym => Err(DriverError::Other(format!(
+        | SchemaObjectKind::Synonym
+        | SchemaObjectKind::Sink
+        | SchemaObjectKind::Connection
+        | SchemaObjectKind::Secret => Err(DriverError::Other(format!(
             "DuckDB has no {:?} objects",
             object.kind
         ))),
